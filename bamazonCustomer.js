@@ -18,22 +18,20 @@ connection.connect(function (err) {
 
 function displayProducts() {
     console.log("Retrieving current inventory...");
-    connection.query("SELECT item_id AS ID,product_name AS Product, price AS Price FROM products", function (err, res) {
+    connection.query("SELECT item_id AS ID,product_name AS Product, price AS Price, stock_quantity AS Available FROM products", function (err, res) {
         if (err) throw err;
-        //console.log(res);
-        //   sample: [ 
-        //   RowDataPacket { item_id: 1, product_name: 'nerdy tshirts', price: 14.5 },
-        //   RowDataPacket { item_id: 2, product_name: 'nature tshirts', price: 12.5 },
-        //   RowDataPacket { item_id: 3, product_name: 'adventure tshirts', price: 10.2 }
-        //   ]
-
         // format the data into a table
-        console.log("-------------------------------------------------");
-        console.log("|  ID  |   Product         |   Price    |");
-        console.log("-------------------------------------------------");
+        console.log("---------------------------------------------------------");
+        console.log("|  " + 'ID'.padEnd(5) + "| " +  'Product'.padEnd(20) + "|  " + 'Price'.padEnd(5) + "|  " + "Available QTY".padEnd(15) + "|  ");
+        console.log("---------------------------------------------------------");
         for (let i = 0; i < res.length; i++) {
-            console.log("|  " + res[i].ID + "  |  " + res[i].Product + "           |         " + res[i].Price + "     |");
+            let id  = res[i].ID.toString().padEnd(5);
+            let prod = res[i].Product.toString().padEnd(20);
+            let p = res[i].Price.toString().padEnd(5);
+            let avail = res[i].Available.toString().padEnd(15);
+            console.log("|  " + id + "| " +  prod + "|  " + p + "|  " + avail + "|  ");   
         }
+        console.log("--------------------------------------------------------- \n");
         mainFunc();
     });
 }
@@ -41,12 +39,6 @@ function displayProducts() {
 function mainFunc() {
     inquirer
         .prompt([
-            // {
-            //     type: "list",
-            //     choices: ["View Products for Sale", "View Low Inventory", "Add to Inventory", "Add New Product"],
-            //     message: "Select desired option: ",
-            //     name: "mainMenu"
-            // }
             {
                 type: "input",
                 message: "Enter the ID of the product you would like to purchase.",
@@ -76,12 +68,13 @@ function mainFunc() {
                     itemPrice = parseFloat(res[0].price);
                     
                     if (itemStockQty <= 0) {
-                        console.log("Sorry, we are out of stock on this item.");
+                        console.log("Sorry, we are out of stock on this item. Please check back later.");
                     } else if (itemStockQty < item_requested_qty) {
                         console.log(`We have ${itemStockQty} items left in stock for this and you are trying to order ${item_requested_qty}. Please reduce your requested qty and try again. `)
-                    } else {
+                    } else if (itemStockQty >= item_requested_qty){
                         //fullfill the order by reducing DB stock
-                        stockUpdate(item_id, item_requested_qty);
+                        let newStockQty = itemStockQty - item_requested_qty;
+                        stockUpdate(item_id, newStockQty);
                         //show the customer the total cost of their purchase.
                         let total = item_requested_qty * itemPrice;
                         console.log(`Your total is $${total}. Thank you for your purchase! `);
@@ -107,6 +100,6 @@ function stockUpdate(id, qty) {
             //console.log(res);
         }
     );
-    //console.log(updateQ);
+    console.log(updateQ);
 }
 
