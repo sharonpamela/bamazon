@@ -31,8 +31,8 @@ function displayProducts() {
         console.log("-------------------------------------------------");
         console.log("|  ID  |   Product         |   Price    |");
         console.log("-------------------------------------------------");
-        for (let i=0; i<res.length;i++){
-            console.log("|  "+ res[i].ID + "  |  " +res[i].Product+ "           |         "+res[i].Price +"     |");
+        for (let i = 0; i < res.length; i++) {
+            console.log("|  " + res[i].ID + "  |  " + res[i].Product + "           |         " + res[i].Price + "     |");
         }
         mainFunc();
     });
@@ -55,28 +55,58 @@ function mainFunc() {
             {
                 type: "input",
                 message: "How many units would you like to buy?",
-                name: "item_qty"
+                name: "item_requested_qty"
             }
         ])
         .then(function (response) {
-            // console.log(response.item_id);
-            // console.log(response.item_qty);
+            let item_id = parseInt(response.item_id);
+            let item_requested_qty = parseInt(response.item_requested_qty);
+            let itemStockQty;
+            let itemPrice;
 
+            // check the amount vailable for product selected
             // get the amount vailable for product selected
-            connection.query("SELECT stock_quantity FROM products WHERE ?",
-            {
-                item_id: response.item_id;
-            },
-            function(err, res){
-
-            });   
-            7. Once the customer has placed the order, your application should check if your store has enough of the product to meet the customer's request.
-
-   * If not, the app should log a phrase like `Insufficient quantity!`, and then prevent the order from going through.
-
-8. However, if your store _does_ have enough of the product, you should fulfill the customer's order.
-   * This means updating the SQL database to reflect the remaining quantity.
-   * Once the update goes through, show the customer the total cost of their purchase.
-            connection.end();
+            connection.query("SELECT * FROM products WHERE ?",
+                {
+                    item_id: response.item_id
+                },
+                function (err, res) {
+                    if (err) throw err;
+                    itemStockQty = parseInt(res[0].stock_quantity);
+                    itemPrice = parseFloat(res[0].price);
+                    
+                    if (itemStockQty <= 0) {
+                        console.log("Sorry, we are out of stock on this item.");
+                    } else if (itemStockQty < item_requested_qty) {
+                        console.log(`We have ${itemStockQty} items left in stock for this and you are trying to order ${item_requested_qty}. Please reduce your requested qty and try again. `)
+                    } else {
+                        //fullfill the order by reducing DB stock
+                        stockUpdate(item_id, item_requested_qty);
+                        //show the customer the total cost of their purchase.
+                        let total = item_requested_qty * itemPrice;
+                        console.log(`Your total is $${total}. Thank you for your purchase! `);
+                    }
+                    connection.end();
+                });
         });
+}//end main
+
+function stockUpdate(id, qty) {
+    let updateQ = connection.query(
+        "UPDATE products SET ? WHERE ?",
+        [
+            {
+                stock_quantity: qty
+            },
+            {
+                item_id: id
+            }
+        ],
+        function (err, res) {
+            if (err) throw err;
+            //console.log(res);
+        }
+    );
+    //console.log(updateQ);
 }
+
