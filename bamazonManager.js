@@ -15,14 +15,12 @@ connection.connect(function (err) {
     mainFunc();
 });
 
-
-
 function mainFunc() {
     inquirer
         .prompt([
             {
                 type: "list",
-                choices: ["View Products for Sale", "View Low Inventory", "Add to Inventory", "Add New Product"],
+                choices: ["View Products for Sale", "View Low Inventory", "Update Current Inventory", "Add New Product"],
                 message: "Select desired option: ",
                 name: "mainMenu"
             }
@@ -33,13 +31,15 @@ function mainFunc() {
                     // displays all products for sale regardless of current stock availability
                     displayProducts();
                     break;
+
                 case "View Low Inventory":
                     // lists all items with an inventory count lower than five.
                     checkLowInventory();
                     break;
-                case "Add to Inventory":
-                    // "add more" of any item currently in the store.
-                    addInventory();
+
+                case "Update Current Inventory":
+                    // add more to (AKA update) any item currently in the store.
+                    inventoryUpdate();
                     break;
 
                 case "Add New Product":
@@ -49,9 +49,20 @@ function mainFunc() {
                 default:
                 // code block
             }
-
         });
 }//end main
+
+//constructor to validate input before proceeding.
+let validation = {
+    isNotEmpty: function (str) {
+        var pattern = /\S+/;
+        return pattern.test(str);  // returns a boolean true if not empty
+    },
+    isNumber: function (str) {
+        var pattern = /^\d+$/;
+        return pattern.test(str);  // returns a boolean
+    }
+};
 
 function displayProducts() {
     console.log("Retrieving current products for sale...");
@@ -75,7 +86,7 @@ function displayProducts() {
 
 function checkLowInventory() {
     console.log("Retrieving products with inventory < 5 ...");
-    let q  = connection.query("SELECT * FROM products WHERE stock_quantity < 5",
+    let q = connection.query("SELECT * FROM products WHERE stock_quantity < 5",
         function (err, res) {
             if (err) throw err;
             console.log("-------------------------------------------------");
@@ -88,27 +99,134 @@ function checkLowInventory() {
                 console.log("|  " + itemID + "| " + itemName + "|  " + itemStockQty + "|  ");
             }
             console.log("------------------------------------------------- \n");
-          
             connection.end();
         });
 }
 
-function stockUpdate(id, qty) {
-    let updateQ = connection.query(
-        "UPDATE products SET ? WHERE ?",
-        [
+function inventoryUpdate() {
+    inquirer
+        .prompt([
             {
-                stock_quantity: qty
+                type: "input",
+                message: "Enter product ID to update: ",
+                name: "item_id"
             },
             {
-                item_id: id
+                type: "list",
+                message: "What action would you like to take on this product? ",
+                choices: ["Edit Product Name", "Edit Product Price", "Edit product Stock Qty", "Delete Item", "Quit with no Changes"],
+                name: "choices"
             }
-        ],
-        function (err, res) {
-            if (err) throw err;
-            //console.log(res);
+        ])
+        .then(function (response) {
+
+            let item_id;
+            let action = response.choices;
+
+            if (validation.isNotEmpty(response.item_id) && validation.isNotEmpty(response.item_id)) {
+
+                item_id = parseInt(response.item_id);
+
+                switch (action) {
+                    case "Edit Product Name":
+                        editProdName(item_id);
+                        break;
+
+                    case "Edit Product Price":
+                        editProdPrice(item_id);
+                        break;
+
+                    case "Edit Product Stock Qty":
+                        editProdStock(item_id);
+                        break;
+
+                    case "Delete Item":
+                        deleteProd(item_id);
+                        break;
+
+                    case "Quit with no Changes":
+                        console("No changes were made.")
+                        break;
+                }
+            } else {
+                console.log("Please enter a valid number for product ID.");
+                connection.end();
+            }
+        });
+}
+
+function editProdName(item_id) {
+    inquirer.prompt([
+        {
+            message: "Enter new Product name: ",
+            type: "input",
+            name: "name"
         }
-    );
-    console.log(updateQ);
+    ]).then(function (res) {
+        if (validation.isNotEmpty(res)) {
+            let newName = res.name;
+            connection.query(
+                "UPDATE products SET ? WHERE ?",
+                [
+                    {
+                        product_name: newName
+                    },
+                    {
+                        item_id: item_id
+                    }
+                ],
+                function (err, res) {
+                    if (err) throw err;
+                    console.log(`Product ${newName} has been updated.`);
+                    connection.end();
+                }
+            );//end db connection query
+        } else {
+            console.log("Please enter a non-empty new name for the product.")
+        }
+    }
+    );// end inquirer
+
+}
+
+function editProdStock(item_id) {
+    inquirer.prompt([
+        {
+            message: "Enter new stock qty for this product: ",
+            type: "input",
+            name: "qty"
+        }
+    ]).then(function (res) {
+        if (validation.isNotEmpty(res)) {
+            let newQty = res.qty;
+            connection.query(
+                "UPDATE products SET ? WHERE ?",
+                [
+                    {
+                        stock_quantity: newQty
+                    },
+                    {
+                        item_id: item_id
+                    }
+                ],
+                function (err, res) {
+                    if (err) throw err;
+                    console.log(`Product Qty has been updated to ${newQty} .`);
+                    connection.end();
+                }
+
+            );//end db connection query
+        } else {
+            console.log("Please enter a valid new qty for the stock of this product.")
+        }
+    });// end inquirer
+}
+
+function editProdStock(item_id) {
+
+}
+
+function deleteProd(item_id) {
+
 }
 
