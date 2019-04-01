@@ -44,6 +44,7 @@ function mainFunc() {
 
                 case "Add New Product":
                     // allow the manager to add a completely new product to the store.
+                    addNewProd();
                     break;
 
                 default:
@@ -66,20 +67,21 @@ let validation = {
 
 function displayProducts() {
     console.log("Retrieving current products for sale...");
-    connection.query("SELECT item_id AS ID,product_name AS Product, price AS Price, stock_quantity AS Available FROM products", function (err, res) {
+    connection.query("SELECT item_id AS ID,product_name AS Product, price AS Price, stock_quantity AS Available, department_name AS Dept FROM products", function (err, res) {
         if (err) throw err;
         // format the data into a table
-        console.log("---------------------------------------------------------");
-        console.log("|  " + 'ID'.padEnd(5) + "| " + 'Product'.padEnd(20) + "|  " + 'Price'.padEnd(5) + "|  " + "Available QTY".padEnd(15) + "|  ");
-        console.log("---------------------------------------------------------");
+        console.log("----------------------------------------------------------------------------");
+        console.log("|  " + 'ID'.padEnd(5) + "| " + 'Product'.padEnd(20) + "|  " + 'Price'.padEnd(6) + "|  " + "Available QTY".padEnd(15) + "|  " + "Department".padEnd(15) + "|  ");
+        console.log("----------------------------------------------------------------------------");
         for (let i = 0; i < res.length; i++) {
             let id = res[i].ID.toString().padEnd(5);
             let prod = res[i].Product.toString().padEnd(20);
-            let p = res[i].Price.toString().padEnd(5);
+            let p = res[i].Price.toString().padEnd(6);
             let avail = res[i].Available.toString().padEnd(15);
-            console.log("|  " + id + "| " + prod + "|  " + p + "|  " + avail + "|  ");
+            let dept = res[i].Dept.toString().padEnd(15);
+            console.log("|  " + id + "| " + prod + "|  " + p + "|  " + avail + "|  " + dept + "|  ");
         }
-        console.log("--------------------------------------------------------- \n");
+        console.log("---------------------------------------------------------------------------- \n");
         connection.end();
     });
 }
@@ -114,16 +116,16 @@ function inventoryUpdate() {
             {
                 type: "list",
                 message: "What action would you like to take on this product? ",
-                choices: ["Edit Product Name", "Edit Product Price", "Edit product Stock Qty", "Delete Item", "Quit with no Changes"],
+                choices: ["Edit Product Name", "Edit Product Price", "Edit Product Stock Qty", "Delete Item", "Quit with no Changes"],
                 name: "choices"
             }
         ])
         .then(function (response) {
 
-            let item_id;
+            let item_id = response.item_id;
             let action = response.choices;
 
-            if (validation.isNotEmpty(response.item_id) && validation.isNotEmpty(response.item_id)) {
+            if (validation.isNotEmpty(item_id) && validation.isNotEmpty(item_id)) {
 
                 item_id = parseInt(response.item_id);
 
@@ -138,6 +140,7 @@ function inventoryUpdate() {
 
                     case "Edit Product Stock Qty":
                         editProdStock(item_id);
+                        console.log("choosing editProdStock " + item_id);
                         break;
 
                     case "Delete Item":
@@ -150,10 +153,56 @@ function inventoryUpdate() {
                 }
             } else {
                 console.log("Please enter a valid number for product ID.");
-                connection.end();
             }
         });
 }
+
+function addNewProd() {
+    inquirer.prompt([
+        {
+            message: "Enter new product name: ",
+            type: "input",
+            name: "name"
+        },
+        {
+            message: "Enter new product price: ",
+            type: "input",
+            name: "price"
+        },
+        {
+            message: "Enter new product initial stock qty: ",
+            type: "input",
+            name: "qty"
+        },
+        {
+            message: "Enter new product department name: ",
+            type: "input",
+            name: "dept"
+        }
+    ]).then(function (res) {
+        if (validation.isNotEmpty(res.name) && validation.isNotEmpty(res.price) && validation.isNotEmpty(res.qty) && validation.isNotEmpty(res.dept)) {
+
+            connection.query(
+                "INSERT INTO products SET ?",
+                {
+                    product_name: res.name,
+                    department_name: res.dept,
+                    price: res.price,
+                    stock_quantity: res.qty
+                },
+                function (err, res) {
+                    if (err) throw err;
+                    console.log(`New product has been added.`);
+                    connection.end();
+                }
+            );//end db connection query
+        } else {
+            console.log("Please enter a non-empty new name for the product.")
+        }
+    });// end inquirer
+
+}
+
 
 function editProdName(item_id) {
     inquirer.prompt([
@@ -163,7 +212,7 @@ function editProdName(item_id) {
             name: "name"
         }
     ]).then(function (res) {
-        if (validation.isNotEmpty(res)) {
+        if (validation.isNotEmpty(res.name)) {
             let newName = res.name;
             connection.query(
                 "UPDATE products SET ? WHERE ?",
@@ -177,16 +226,14 @@ function editProdName(item_id) {
                 ],
                 function (err, res) {
                     if (err) throw err;
-                    console.log(`Product ${newName} has been updated.`);
+                    console.log(`Product ${newName} for product ID ${item_id} has been updated.`);
                     connection.end();
                 }
             );//end db connection query
         } else {
             console.log("Please enter a non-empty new name for the product.")
         }
-    }
-    );// end inquirer
-
+    });// end inquirer
 }
 
 function editProdStock(item_id) {
@@ -211,10 +258,9 @@ function editProdStock(item_id) {
                 ],
                 function (err, res) {
                     if (err) throw err;
-                    console.log(`Product Qty has been updated to ${newQty} .`);
+                    console.log(`Product Qty  for product ID ${item_id} has been updated to ${newQty}.`);
                     connection.end();
                 }
-
             );//end db connection query
         } else {
             console.log("Please enter a valid new qty for the stock of this product.")
@@ -222,11 +268,51 @@ function editProdStock(item_id) {
     });// end inquirer
 }
 
-function editProdStock(item_id) {
-
+function editProdPrice(item_id) {
+    inquirer.prompt([
+        {
+            message: "Enter new Product Price: ",
+            type: "input",
+            name: "price"
+        }
+    ]).then(function (res) {
+        if (validation.isNotEmpty(res)) {
+            let newPrice = res.price;
+            connection.query(
+                "UPDATE products SET ? WHERE ?",
+                [
+                    {
+                        price: newPrice
+                    },
+                    {
+                        item_id: item_id
+                    }
+                ],
+                function (err, res) {
+                    if (err) throw err;
+                    console.log(`Product price for product ID ${item_id} has been updated to ${newPrice}.`);
+                    connection.end();
+                }
+            );//end db connection query
+        } else {
+            console.log("Please enter a non-empty new price for the product.")
+        }
+    });// end inquirer
 }
 
 function deleteProd(item_id) {
-
+    connection.query(
+        "DELETE FROM products WHERE ?",
+        [
+            {
+                item_id: item_id
+            }
+        ],
+        function (err, res) {
+            if (err) throw err;
+            console.log(`Product ${item_id} has been deleted.`);
+            connection.end();
+        }
+    );//end db connection query
 }
 

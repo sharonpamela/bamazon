@@ -75,32 +75,37 @@ function mainFunc() {
 
             if (validation.isNotEmpty(response.item_id) && validation.isNotEmpty(response.item_requested_qty) && validation.isNumber(response.item_id) && validation.isNumber(response.item_requested_qty)) {
 
-                // check the amount vailable for product selected
-                connection.query("SELECT * FROM products WHERE ?",
-                    {
-                        item_id: response.item_id
-                    },
-                    function (err, res) {
-                        if (err) throw err;
-                        itemStockQty = parseInt(res[0].stock_quantity);
-                        itemPrice = parseFloat(res[0].price);
+                // check the amount vailable for product selected before processing trans
+                let currStock;
+                let currPrice;
+                Database.execute(config,
+                    database => database.query(`SELECT stock_quantity FROM products WHERE item_id = ${response.item_id}`)
+                        .then(stock => {
+                            currStock = stock;
+                            return database.query(`SELECT price FROM products WHERE item_id = ${response.item_id}`)
+                        })
+                        .then(price => {
+                            currPrice = price;
+                        })
+                ).then(() => {
+                    // do all calculations here
+                    if (currStock <= 0) {
+                        console.log("Sorry, we are out of stock on this item. Please check back later.");
+                    } else if (currStock < item_requested_qty) {
+                        console.log(`We have ${currStock} of this item left in stock and you are trying to order ${item_requested_qty}. Please reduce your requested qty and try again. `)
+                    } else if (currStock >= item_requested_qty) {
 
-                        if (itemStockQty <= 0) {
-                            console.log("Sorry, we are out of stock on this item. Please check back later.");
-                        } else if (itemStockQty < item_requested_qty) {
-                            console.log(`We have ${itemStockQty} items left in stock for this and you are trying to order ${item_requested_qty}. Please reduce your requested qty and try again. `)
-                        } else if (itemStockQty >= item_requested_qty) {
-                            //fullfill the order by reducing DB stock
-                            let newStockQty = itemStockQty - item_requested_qty;
-                            stockUpdate(item_id, newStockQty);
-                            //show the customer the total cost of their purchase.
-                            let total = (item_requested_qty * itemPrice).toFixed(2); // 2 decimal places float
-                            console.log(`Your total is $${total}. Thank you for your purchase! `);
-                            // update the products column with the sale just processed
-                            // salesUpdate(item_id, total);
-                        }
-                        connection.end();
-                    });
+                        //fullfill the order by reducing DB stock
+                      
+
+
+
+                    } // end "if" for fullfill order
+
+                }).catch(err => {
+                    // handle the error
+                });
+
             } else {
                 console.log("Please enter a valid number for product ID and/or Product Qty");
                 connection.end();
@@ -108,42 +113,43 @@ function mainFunc() {
         });
 }//end main
 
-function stockUpdate(id, qty) {
-    let updateQ = connection.query(
-        "UPDATE products SET ? WHERE ?",
-        [
-            {
-                stock_quantity: qty
-            },
-            {
-                item_id: id
-            }
-        ],
-        function (err, res) {
-            if (err) throw err;
-        }
-    );
-}
 
-function salesUpdate(id, newSale) {
-    // first get the sales number thusfar
-    connection.query(
-        "SELECT product_sales FROM products WHERE ?",
-        [
-            {
-                item_id: id
-            }
-        ],
-        function (err, res) {
-            if (err) throw err;
-            let oldTotalSales = parseFloat(res[0].product_sales);
-            console.log(res);
-            console.log("old sales: "+(oldTotalSales));
-            let updatedTotalSales = oldTotalSales + parseFloat(newSale);
-            console.log(`The total sales for this item is now: ${updatedTotalSales}`)
-            connection.end();
-        }
-        
-    ); // end check sales number query
+let newStockQty = itemStockQty - item_requested_qty;
+connection.query(`UPDATE products SET stock_quantity= ${newStockQty} WHERE item_id= ${response.item_id}`,
+    function (err, res) {
+        if (err) throw err;
+        //show the customer the total cost of their purchase.
+        let total = (item_requested_qty * itemPrice).toFixed(2); // 2 decimal places float
+        console.log(`Your total is $${total}. Thank you for your purchase! `);
+        // update the products column with the sale just processed
+        let oldTotalSales = res;
+        console.log("old sales: " + (oldTotalSales));
+        let updatedTotalSales = oldTotalSales + newSale;
 
-} //end function salesUpdate
+        connection.query(
+            `UPDATE products SET product_sales = ${updatedTotalSales} WHERE item_id = ${response.item_id}`,
+            function (err, res) {
+                if (err) throw err;
+            });
+    });
+
+
+
+
+let newStockQty = itemStockQty - item_requested_qty;
+let updatedTotalSales;
+Database.execute( config,
+    database => database.query(`UPDATE products SET stock_quantity= ${newStockQty} WHERE item_id= ${response.item_id}`)
+    .then( (rows) => {
+        someRows = rows;
+        return database.query( 'SELECT * FROM other_table' )
+    } )
+    .then( rows => {
+        otherRows = rows;
+    } )
+).then( () => {
+    // do something with someRows and otherRows
+} ).catch( err => {
+    // handle the error
+} );
+
